@@ -14,4 +14,14 @@ app.get('/', (req, res) => {
   res.send('Server is trying its best to be healthy...')
 })
 
+// mongodb connection
+
+mongoose.connect(process.env.DB_URL)
+.then(() => {
+  console.log("Successfully connected to mongodb");
+})
+.catch((err) => {
+  console.log("Error connecting to mongodb", err.message);
+})
+
 module.exports = app;

@@ -10,7 +10,7 @@ router.post('/register', register);
 
 // @route POST    /api/auth/login
 // @description   Login a user
-// @access        Private
+// @access        Public
 
 router.post('/login', login);
 

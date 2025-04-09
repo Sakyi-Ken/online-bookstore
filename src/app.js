@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoute');
+const bookRoutes = require('./routes/bookRoute');
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get('/', (req, res) => {
 
 // endpoints or routes
 app.use('/api/auth/', authRoutes);
+app.use('/api/book/', bookRoutes);
 
 // mongodb connection
 

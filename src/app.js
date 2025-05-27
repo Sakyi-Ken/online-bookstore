@@ -17,11 +17,9 @@ app.get('/', (req, res) => {
 })
 
 // endpoints or routes
-app.use('/api/auth/', authRoutes);
-app.use('/api/book/', bookRoutes);
+app.use('/api/v1/', authRoutes, bookRoutes);
 
 // mongodb connection
-
 mongoose.connect(process.env.DB_URL)
 .then(() => {
   console.log("Successfully connected to mongodb");

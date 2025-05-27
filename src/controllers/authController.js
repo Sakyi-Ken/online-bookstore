@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 exports.register = async (req, res) => {
   try {
-    const { first_name, last_name, email, password } = req.body;
+    const { first_name, last_name, email, password, isAdmin } = req.body;
     // validation
     if (!first_name || !last_name || !email || !password) {
       res.status(400).json({ message: "All fields are required" });
@@ -12,7 +12,7 @@ exports.register = async (req, res) => {
     // check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(404).json({ message: "User already exist!"});
+      return res.status(404).json({ success: false, message: "User already exist!"});
     }
     // password hashing
     const salt = await bcrypt.genSalt(10);
@@ -22,17 +22,29 @@ exports.register = async (req, res) => {
       first_name,
       last_name,
       email,
-      password: hashedPassword
+      password: hashedPassword,
+      isAdmin
     })
     // save user to database
     const savedUser = await user.save();
+    const userWithoutPassword = {
+      first_name: savedUser.first_name,
+      last_name: savedUser.last_name,
+      email: savedUser.email,
+      userId: savedUser._id,
+      isAdmin: savedUser.isAdmin
+    }
+    // consnt userWithoutPassword = savedUser.toObject();
+    // userWithoutPassword.password = undefined;
+    // or delete userWithoutPassword.password;
     return res.status(201).json({
+      success: true,
       message: "User registered successfully",
-      savedUser
-    })
+      user: userWithoutPassword
+    });
   } catch (error) {
     console.error("Error registering user: ", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 }
 
@@ -42,27 +54,73 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
     // validation
     if (!email || !password) {
-      return res.status(400).json({ message: "All fields are required"});
+      return res.status(400).json({ success: false, message: "All fields are required"});
     }
     // check if user exists
     const existingUser = await User.findOne({ email });
     if(!existingUser) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
     // password check 
     const isPasswordValid = await bcrypt.compare(password, existingUser.password);
     console.log(isPasswordValid);
     if (!isPasswordValid) {
-      return res.status(404).json({ message: "Invalid credentials" }); 
+      return res.status(404).json({ success: false, message: "Invalid credentials" }); 
     }
     // token generation
-    const accessToken = await jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, {
-      expiresIn: '15mins'
-    });
+    const accessToken = jwt.sign(
+      { 
+        userId: existingUser._id, 
+        isAdmin: existingUser.isAdmin
+      }, 
+      process.env.JWT_SECRET,
+      {
+        expiresIn: '1d'
+      }
+    );
+    // remove password from user object
+    const userWithoutPassword = {
+      first_name: existingUser.first_name,
+      last_name: existingUser.last_name,
+      email: existingUser.email,
+      userId: existingUser._id,
+      isAdmin: existingUser.isAdmin
+    }
+    // or const { password: _, ...userWithoutPassword } = existingUser._doc;
+    // const user = { ...userWithoutPassword };
      // login success
-     return res.status(200).json({ message: "Login successful", accessToken, user: existingUser});
+
+     // set session cookie
+     res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      SameSite: 'None', 
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
+     });
+
+     return res.status(200).json({
+      success: true, 
+      message: "Login successful", 
+      accessToken, 
+      user: userWithoutPassword
+    });
   } catch (error) {
-    console.error("Error logging in user: ", error);
-    res.status(500).json({ message: "Internal server error"});
+    console.error("Error logging in user:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error"});
+  }
+}
+
+exports.logout = async (req, res) => {
+  try {
+    // clear the session cookie
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'None'
+    });
+    res.status(200).json({ success: true, message: 'User signed out successfully' });
+  } catch (error) {
+    console.log('Error signing out user:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 }

@@ -15,6 +15,16 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
+    validate: {
+      validator: function(v) {
+        return /^[a-zA-Z0-9.%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v);
+      },
+      message: props => `${props.value} is not a valid email!`
+      /*
+      Example of a more robust regex (RFC 5322 Official Standard)
+      return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/.test(v);
+      */
+    }
   },
   password: {
     type: String,

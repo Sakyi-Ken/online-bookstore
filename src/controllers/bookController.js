@@ -16,7 +16,7 @@ exports.getAllBooks = async (req, res) => {
     console.log('Error fetching all books:', err);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
-};
+}
 
 // 2. POST a new book (admin adds a book)
 exports.addBook = async (req, res) => {
@@ -162,6 +162,84 @@ exports.getBooksByPriceRange = async (req, res) => {
     res.status(200).json({ success: true, message: "Books found", books });
   } catch (err) {
     console.log('Error fetching books by price:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
+// 10. Post a buy now order
+exports.buyNowOrder = async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const { userId } = req.user;
+    const book = await Book.findById(bookId);
+    if (!book) {
+      return res.status(404).json({ success: false, message: 'Book not found' });
+    }
+    if (!book.inStock || book.stockQuantity === 0) {
+      return res.status(400).json({ success: false, message: 'Book is out of stock' });
+    }
+    // Create a new order
+    const newOrder = new Order({
+      userId,
+      bookId,
+      title: book.title,
+      status: 'Pending',
+    });
+    // Save the order to the database
+    const savedOrder = await newOrder.save();
+    // Update the book stock
+    book.stockQuantity -= 1;
+    if (book.stockQuantity === 0) {
+      book.inStock = false;
+    }
+    await book.save();
+    res.status(201).json({ 
+      success: true, 
+      message: 'Buy now order placed successfully', 
+      order: savedOrder 
+    });
+  } catch (err) {
+    console.log('Error processing buy now order:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+}
+
+// 11. Post a review for a book
+exports.postReview = async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const { userId } = req.user;
+    const { rating, comment } = req.body;
+    // Validate input
+    if (!rating || !comment) {
+      return res.status(400).json({ success: false, message: 'Rating and comment are required' });
+    }
+    const book = await Book.findById(bookId);
+    if (!book) {
+      return res.status(404).json({ success: false, message: 'Book not found' });
+    }
+    // Check if the user has already reviewed this book
+    const existingReview = book.reviews.find(review => review.userId.toString() === userId);
+    if (existingReview) {
+      return res.status(400).json({ success: false, message: 'You have already reviewed this book' });
+    }
+    // Create a new review
+    const newReview = {
+      userId,
+      rating,
+      comment
+    }
+    // Add the review to the book's reviews array
+    book.reviews.push(newReview);
+    // Save the book with the new review
+    const updatedBook = await book.save();
+    res.status(201).json({ 
+      success: true, 
+      message: 'Review posted successfully', 
+      book: updatedBook 
+    });
+  } catch (err) {
+    console.log('Error posting review:', err);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 }
